@@ -1,8 +1,9 @@
 import 'dart:io';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart' as sfpdf;
+import 'package:pdfx/pdfx.dart';
 
 class MergePdfPage extends StatefulWidget {
   const MergePdfPage({super.key});
@@ -12,65 +13,65 @@ class MergePdfPage extends StatefulWidget {
 }
 
 class _MergePdfPageState extends State<MergePdfPage> {
-  bool isMerging = false;
-  String? savedPath;
+  List<File> selectedFiles = [];
+  String? mergedPath;
+  bool isProcessing = false;
+
+  Future<void> pickFiles() async {
+    final typeGroup = XTypeGroup(label: 'PDF', extensions: ['pdf']);
+    final files = await openFiles(acceptedTypeGroups: [typeGroup]);
+
+    setState(() {
+      selectedFiles = files.map((e) => File(e.path)).toList();
+    });
+  }
 
   Future<void> mergePdfs() async {
-    setState(() => isMerging = true);
+    if (selectedFiles.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Select at least 2 PDFs")),
+      );
+      return;
+    }
+
+    setState(() => isProcessing = true);
 
     try {
-      final ByteData data1 =
-      await rootBundle.load('assets/pdfs/sample1.pdf');
-      final ByteData data2 =
-      await rootBundle.load('assets/pdfs/sample2.pdf');
+      final sfpdf.PdfDocument mergedDocument = sfpdf.PdfDocument();
 
-      final PdfDocument document1 =
-      PdfDocument(inputBytes: data1.buffer.asUint8List());
-      final PdfDocument document2 =
-      PdfDocument(inputBytes: data2.buffer.asUint8List());
+      for (File file in selectedFiles) {
+        final bytes = await file.readAsBytes();
+        final sfpdf.PdfDocument document =
+        sfpdf.PdfDocument(inputBytes: bytes);
 
-      // 🔥 NEW MERGE METHOD
-      final PdfDocument mergedDocument = PdfDocument();
-      mergedDocument.pages.add().graphics.drawPdfTemplate(
-        document1.pages[0].createTemplate(),
-        const Offset(0, 0),
-      );
+        for (int i = 0; i < document.pages.count; i++) {
+          mergedDocument.pages.add().graphics.drawPdfTemplate(
+            document.pages[i].createTemplate(),
+            const Offset(0, 0),
+          );
+        }
 
-      for (int i = 1; i < document1.pages.count; i++) {
-        mergedDocument.pages.add().graphics.drawPdfTemplate(
-          document1.pages[i].createTemplate(),
-          const Offset(0, 0),
-        );
+        document.dispose();
       }
-
-      for (int i = 0; i < document2.pages.count; i++) {
-        mergedDocument.pages.add().graphics.drawPdfTemplate(
-          document2.pages[i].createTemplate(),
-          const Offset(0, 0),
-        );
-      }
-
-      final List<int> bytes = await mergedDocument.save();
-
-      document1.dispose();
-      document2.dispose();
-      mergedDocument.dispose();
 
       final directory = await getApplicationDocumentsDirectory();
       final filePath = '${directory.path}/merged_output.pdf';
-      final file = File(filePath);
-      await file.writeAsBytes(bytes);
+
+      final List<int> bytes = mergedDocument.saveSync();
+      await File(filePath).writeAsBytes(bytes);
+
+      mergedDocument.dispose();
 
       setState(() {
-        savedPath = filePath;
-        isMerging = false;
+        mergedPath = filePath;
+        isProcessing = false;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("PDFs merged successfully!")),
       );
     } catch (e) {
-      setState(() => isMerging = false);
+      setState(() => isProcessing = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error: $e")),
       );
@@ -82,21 +83,39 @@ class _MergePdfPageState extends State<MergePdfPage> {
     return Scaffold(
       appBar: AppBar(title: const Text("Merge PDFs")),
       body: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            const SizedBox(height: 40),
             ElevatedButton(
-              onPressed: isMerging ? null : mergePdfs,
-              child: isMerging
-                  ? const CircularProgressIndicator()
-                  : const Text("Merge Sample PDFs"),
+              onPressed: pickFiles,
+              child: const Text("Select PDFs"),
             ),
-            const SizedBox(height: 30),
-            if (savedPath != null)
-              Text(
-                "Saved at:\n$savedPath",
-                textAlign: TextAlign.center,
+            const SizedBox(height: 10),
+
+            Text("Selected: ${selectedFiles.length} files"),
+
+            const SizedBox(height: 20),
+
+            ElevatedButton(
+              onPressed: isProcessing ? null : mergePdfs,
+              child: isProcessing
+                  ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+                  : const Text("Merge"),
+            ),
+
+            const SizedBox(height: 20),
+
+            if (mergedPath != null)
+              Expanded(
+                child: PdfView(
+                  controller: PdfController(
+                    document: PdfDocument.openFile(mergedPath!),
+                  ),
+                ),
               ),
           ],
         ),
