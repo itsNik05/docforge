@@ -23,6 +23,7 @@ class _MergePdfPageState extends State<MergePdfPage> {
 
     setState(() {
       selectedFiles = files.map((e) => File(e.path)).toList();
+      mergedPath = null;
     });
   }
 
@@ -57,7 +58,7 @@ class _MergePdfPageState extends State<MergePdfPage> {
       final directory = await getApplicationDocumentsDirectory();
       final filePath = '${directory.path}/merged_output.pdf';
 
-      final List<int> bytes = mergedDocument.saveSync();
+      final bytes = mergedDocument.saveSync();
       await File(filePath).writeAsBytes(bytes);
 
       mergedDocument.dispose();
@@ -78,6 +79,12 @@ class _MergePdfPageState extends State<MergePdfPage> {
     }
   }
 
+  void removeFile(int index) {
+    setState(() {
+      selectedFiles.removeAt(index);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -90,11 +97,53 @@ class _MergePdfPageState extends State<MergePdfPage> {
               onPressed: pickFiles,
               child: const Text("Select PDFs"),
             ),
+
             const SizedBox(height: 10),
 
             Text("Selected: ${selectedFiles.length} files"),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
+
+            /// 🔥 DRAG REORDER LIST
+            if (selectedFiles.isNotEmpty)
+              Expanded(
+                child: ReorderableListView.builder(
+                  itemCount: selectedFiles.length,
+                  onReorder: (oldIndex, newIndex) {
+                    setState(() {
+                      if (newIndex > oldIndex) newIndex--;
+                      final file = selectedFiles.removeAt(oldIndex);
+                      selectedFiles.insert(newIndex, file);
+                    });
+                  },
+                  itemBuilder: (context, index) {
+                    final file = selectedFiles[index];
+
+                    return ListTile(
+                      key: ValueKey(file.path),
+                      leading: const Icon(Icons.picture_as_pdf,
+                          color: Colors.red),
+                      title: Text(
+                        file.path.split('\\').last,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.drag_handle),
+                          const SizedBox(width: 10),
+                          IconButton(
+                            icon: const Icon(Icons.delete),
+                            onPressed: () => removeFile(index),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+            const SizedBox(height: 10),
 
             ElevatedButton(
               onPressed: isProcessing ? null : mergePdfs,
@@ -107,8 +156,9 @@ class _MergePdfPageState extends State<MergePdfPage> {
                   : const Text("Merge"),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
 
+            /// 🔥 PDF PREVIEW
             if (mergedPath != null)
               Expanded(
                 child: PdfView(
