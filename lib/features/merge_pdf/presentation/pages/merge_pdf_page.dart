@@ -16,6 +16,24 @@ class _MergePdfPageState extends State<MergePdfPage> {
   List<File> selectedFiles = [];
   String? mergedPath;
   bool isProcessing = false;
+  int totalPages = 0;
+
+
+  Future<void> calculateTotalPages() async {
+    int pages = 0;
+
+    for (File file in selectedFiles) {
+      final bytes = await file.readAsBytes();
+      final document = sfpdf.PdfDocument(inputBytes: bytes);
+      pages += document.pages.count;
+      document.dispose();
+    }
+
+    setState(() {
+      totalPages = pages;
+    });
+  }
+
 
   Future<void> pickFiles() async {
     final typeGroup = XTypeGroup(label: 'PDF', extensions: ['pdf']);
@@ -35,6 +53,7 @@ class _MergePdfPageState extends State<MergePdfPage> {
 
       mergedPath = null; // reset preview when adding new files
     });
+    await calculateTotalPages();
   }
   Future<void> mergePdfs() async {
     if (selectedFiles.length < 2) {
@@ -112,10 +131,12 @@ class _MergePdfPageState extends State<MergePdfPage> {
     }
   }
 
-  void removeFile(int index) {
+  void removeFile(int index) async {
     setState(() {
       selectedFiles.removeAt(index);
     });
+
+    await calculateTotalPages();
   }
 
   @override
@@ -156,9 +177,35 @@ class _MergePdfPageState extends State<MergePdfPage> {
                       key: ValueKey(file.path),
                       leading: const Icon(Icons.picture_as_pdf,
                           color: Colors.red),
-                      title: Text(
-                        file.path.split('\\').last,
-                        overflow: TextOverflow.ellipsis,
+                      title: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            file.path.split('\\').last,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          FutureBuilder<int>(
+                            future: file.length(),
+                            builder: (context, snapshot) {
+                              if (!snapshot.hasData) return const SizedBox();
+
+                              final sizeInKB = snapshot.data! / 1024;
+                              final sizeInMB = sizeInKB / 1024;
+
+                              final sizeText = sizeInMB >= 1
+                                  ? "${sizeInMB.toStringAsFixed(2)} MB"
+                                  : "${sizeInKB.toStringAsFixed(0)} KB";
+
+                              return Text(
+                                sizeText,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white54,
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -177,7 +224,17 @@ class _MergePdfPageState extends State<MergePdfPage> {
               ),
 
             const SizedBox(height: 10),
-
+            if (selectedFiles.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Text(
+                  "Total Pages: $totalPages",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange,
+                  ),
+                ),
+              ),
             ElevatedButton(
               onPressed: isProcessing ? null : mergePdfs,
               child: isProcessing
