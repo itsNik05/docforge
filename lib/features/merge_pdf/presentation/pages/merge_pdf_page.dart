@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart' as sfpdf;
 import 'package:pdfx/pdfx.dart';
+import 'package:path/path.dart' as p;
 
 class MergePdfPage extends StatefulWidget {
   const MergePdfPage({super.key});
@@ -17,20 +18,33 @@ class _MergePdfPageState extends State<MergePdfPage> {
   String? mergedPath;
   bool isProcessing = false;
   int totalPages = 0;
+  Map<String, int> filePageCounts = {};
+  int totalFileSizeBytes = 0;
+  double mergeProgress = 0.0;
 
 
-  Future<void> calculateTotalPages() async {
+  Future<void> calculateFileStats() async {
     int pages = 0;
+    int sizeBytes = 0;
+    Map<String, int> pageMap = {};
 
     for (File file in selectedFiles) {
       final bytes = await file.readAsBytes();
+      sizeBytes += bytes.length;
+
       final document = sfpdf.PdfDocument(inputBytes: bytes);
-      pages += document.pages.count;
+      final count = document.pages.count;
+
+      pages += count;
+      pageMap[file.path] = count;
+
       document.dispose();
     }
 
     setState(() {
       totalPages = pages;
+      totalFileSizeBytes = sizeBytes;
+      filePageCounts = pageMap;
     });
   }
 
@@ -53,7 +67,7 @@ class _MergePdfPageState extends State<MergePdfPage> {
 
       mergedPath = null; // reset preview when adding new files
     });
-    await calculateTotalPages();
+    await calculateFileStats();
   }
   Future<void> mergePdfs() async {
     if (selectedFiles.length < 2) {
@@ -136,7 +150,7 @@ class _MergePdfPageState extends State<MergePdfPage> {
       selectedFiles.removeAt(index);
     });
 
-    await calculateTotalPages();
+    await calculateFileStats();
   }
 
   @override
@@ -173,68 +187,125 @@ class _MergePdfPageState extends State<MergePdfPage> {
                   itemBuilder: (context, index) {
                     final file = selectedFiles[index];
 
-                    return ListTile(
+                    return Card(
                       key: ValueKey(file.path),
-                      leading: const Icon(Icons.picture_as_pdf,
-                          color: Colors.red),
-                      title: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            file.path.split('\\').last,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          FutureBuilder<int>(
-                            future: file.length(),
-                            builder: (context, snapshot) {
-                              if (!snapshot.hasData) return const SizedBox();
-
-                              final sizeInKB = snapshot.data! / 1024;
-                              final sizeInMB = sizeInKB / 1024;
-
-                              final sizeText = sizeInMB >= 1
-                                  ? "${sizeInMB.toStringAsFixed(2)} MB"
-                                  : "${sizeInKB.toStringAsFixed(0)} KB";
-
-                              return Text(
-                                sizeText,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.white54,
-                                ),
-                              );
-                            },
-                          ),
-                        ],
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      color: const Color(0xFF1A1A1F),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.drag_handle),
-                          const SizedBox(width: 10),
-                          IconButton(
-                            icon: const Icon(Icons.delete),
-                            onPressed: () => removeFile(index),
-                          ),
-                        ],
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.picture_as_pdf,
+                                color: Color(0xFFFF6B2B), size: 32),
+
+                            const SizedBox(width: 12),
+
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    p.basename(file.path),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+
+                                  const SizedBox(height: 4),
+
+                                  FutureBuilder<int>(
+                                    future: file.length(),
+                                    builder: (context, snapshot) {
+                                      if (!snapshot.hasData) return const SizedBox();
+
+                                      final sizeInKB = snapshot.data! / 1024;
+                                      final sizeInMB = sizeInKB / 1024;
+
+                                      final sizeText = sizeInMB >= 1
+                                          ? "${sizeInMB.toStringAsFixed(2)} MB"
+                                          : "${sizeInKB.toStringAsFixed(0)} KB";
+
+                                      return Text(
+                                        sizeText,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.white54,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  if (filePageCounts.containsKey(file.path))
+                                    Text(
+                                      "${filePageCounts[file.path]} pages",
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.white38,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.redAccent),
+                              onPressed: () => removeFile(index),
+                            ),
+
+                            const Icon(Icons.drag_handle, color: Colors.white38),
+                          ],
+                        ),
                       ),
                     );
                   },
                 ),
               ),
 
-            const SizedBox(height: 10),
             if (selectedFiles.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Text(
-                  "Total Pages: $totalPages",
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.orange,
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      selectedFiles.clear();
+                      totalPages = 0;
+                      totalFileSizeBytes = 0;
+                      filePageCounts.clear();
+                      mergedPath = null;
+                    });
+                  },
+                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  label: const Text(
+                    "Clear All",
+                    style: TextStyle(color: Colors.redAccent),
                   ),
                 ),
               ),
+
+            const SizedBox(height: 10),
+
+            if (selectedFiles.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF131316),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFF6B2B)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _statRow("Total Files", selectedFiles.length.toString()),
+                    _statRow("Total Pages", totalPages.toString()),
+                    _statRow("Combined Size", _formatBytes(totalFileSizeBytes)),
+                  ],
+                ),
+              ),
+
             ElevatedButton(
               onPressed: isProcessing ? null : mergePdfs,
               child: isProcessing
@@ -261,5 +332,31 @@ class _MergePdfPageState extends State<MergePdfPage> {
         ),
       ),
     );
+  }
+  Widget _statRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.white54)),
+          Text(
+            value,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Color(0xFFFF6B2B),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes >= 1024 * 1024) {
+      return "${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB";
+    } else {
+      return "${(bytes / 1024).toStringAsFixed(0)} KB";
+    }
   }
 }
