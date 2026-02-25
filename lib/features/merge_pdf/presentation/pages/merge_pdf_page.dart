@@ -26,7 +26,6 @@ class _MergePdfPageState extends State<MergePdfPage> {
       mergedPath = null;
     });
   }
-
   Future<void> mergePdfs() async {
     if (selectedFiles.length < 2) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -37,26 +36,39 @@ class _MergePdfPageState extends State<MergePdfPage> {
 
     setState(() => isProcessing = true);
 
-    try {
-      final sfpdf.PdfDocument mergedDocument = sfpdf.PdfDocument();
+    // ✅ Fix 1: declare mergedDocument locally
+    final mergedDocument = sfpdf.PdfDocument();
 
+    try {
       for (File file in selectedFiles) {
         final bytes = await file.readAsBytes();
-        final sfpdf.PdfDocument document =
-        sfpdf.PdfDocument(inputBytes: bytes);
+        final sfpdf.PdfDocument document = sfpdf.PdfDocument(inputBytes: bytes);
 
+        // ✅ REPLACE YOUR OLD INNER FOR LOOP WITH THIS:
         for (int i = 0; i < document.pages.count; i++) {
-          mergedDocument.pages.add().graphics.drawPdfTemplate(
-            document.pages[i].createTemplate(),
+          final originalPage = document.pages[i];
+          final template = originalPage.createTemplate();
+
+          // ✅ Use sections to control per-page settings
+          final section = mergedDocument.sections!.add();
+          section.pageSettings.size = Size(originalPage.size.width, originalPage.size.height);
+          section.pageSettings.margins.all = 0;
+
+          final newPage = section.pages.add();
+
+          newPage.graphics.drawPdfTemplate(
+            template,
             const Offset(0, 0),
+            Size(originalPage.size.width, originalPage.size.height),
           );
         }
+        // ✅ END OF REPLACEMENT
 
         document.dispose();
       }
 
-      final directory = await getApplicationDocumentsDirectory();
-      final filePath = '${directory.path}/merged_output.pdf';
+      final directory = await getExternalStorageDirectory();
+      final filePath = '${directory!.path}/merged_output.pdf';
 
       final bytes = mergedDocument.saveSync();
       await File(filePath).writeAsBytes(bytes);
