@@ -21,9 +21,19 @@ class _MergePdfPageState extends State<MergePdfPage> {
     final typeGroup = XTypeGroup(label: 'PDF', extensions: ['pdf']);
     final files = await openFiles(acceptedTypeGroups: [typeGroup]);
 
+    if (files.isEmpty) return;
+
     setState(() {
-      selectedFiles = files.map((e) => File(e.path)).toList();
-      mergedPath = null;
+      for (var file in files) {
+        final newFile = File(file.path);
+
+        // Prevent duplicate entries
+        if (!selectedFiles.any((f) => f.path == newFile.path)) {
+          selectedFiles.add(newFile);
+        }
+      }
+
+      mergedPath = null; // reset preview when adding new files
     });
   }
   Future<void> mergePdfs() async {
