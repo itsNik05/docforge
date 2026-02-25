@@ -1,25 +1,61 @@
 import 'package:flutter/material.dart';
+import '../../../files/presentation/pages/files_page.dart';
+import '../../../profile/presentation/pages/profile_page.dart';
 import 'package:go_router/go_router.dart';
 
-class DashboardPage extends StatelessWidget {
+class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
 
   @override
+  State<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
+  int currentIndex = 0;
+
+  @override
   Widget build(BuildContext context) {
+    final pages = [
+      _homeContent(),
+      const FilesPage(),
+      const ProfilePage(),
+    ];
+
     return Scaffold(
-      bottomNavigationBar: _bottomNav(),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              _header(),
-              _statsRow(),
-              _storageBar(),
-              _uploadZone(),
-              _sectionTitle("Quick Tools"),
-              _toolsGrid(context),
-            ],
-          ),
+      body: pages[currentIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: currentIndex,
+        backgroundColor: const Color(0xFF131316),
+        selectedItemColor: const Color(0xFFFF6B2B),
+        unselectedItemColor: Colors.white38,
+        onTap: (index) {
+          setState(() {
+            currentIndex = index;
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
+          BottomNavigationBarItem(icon: Icon(Icons.folder), label: "Files"),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
+        ],
+      ),
+    );
+  }
+
+  /// ---------------- HOME CONTENT ----------------
+
+  Widget _homeContent() {
+    return SafeArea(
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            _header(),
+            _statsRow(),
+            _storageBar(),
+            _uploadZone(),
+            _sectionTitle("Quick Tools"),
+            _toolsGrid(context),
+          ],
         ),
       ),
     );
@@ -31,11 +67,14 @@ class DashboardPage extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: const [
-          Text("DocForge",
-              style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white)),
+          Text(
+            "DocForge",
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
           Icon(Icons.settings, color: Colors.white54),
         ],
       ),
@@ -63,12 +102,16 @@ class DashboardPage extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              Text(value,
-                  style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFFF6B2B))),
-              Text(label, style: const TextStyle(color: Colors.white54))
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFFF6B2B),
+                ),
+              ),
+              Text(label,
+                  style: const TextStyle(color: Colors.white54)),
             ],
           ),
         ),
@@ -86,8 +129,10 @@ class DashboardPage extends StatelessWidget {
             color: Color(0xFFFF6B2B),
           ),
           SizedBox(height: 8),
-          Text("Storage used · 68%",
-              style: TextStyle(color: Colors.white54))
+          Text(
+            "Storage used · 68%",
+            style: TextStyle(color: Colors.white54),
+          ),
         ],
       ),
     );
@@ -106,10 +151,13 @@ class DashboardPage extends StatelessWidget {
           ),
           child: const Column(
             children: [
-              Icon(Icons.folder_open, size: 40, color: Colors.white70),
+              Icon(Icons.folder_open,
+                  size: 40, color: Colors.white70),
               SizedBox(height: 12),
-              Text("Drop your PDF here",
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                "Drop your PDF here",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ],
           ),
         ),
@@ -122,10 +170,13 @@ class DashboardPage extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       child: Align(
         alignment: Alignment.centerLeft,
-        child: Text(text,
-            style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.white54)),
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white54,
+          ),
+        ),
       ),
     );
   }
@@ -152,7 +203,9 @@ class DashboardPage extends StatelessWidget {
   Widget _toolCard(
       BuildContext context, String title, IconData icon, String route) {
     return GestureDetector(
-      onTap: () => context.push(route),
+      onTap: () {
+        context.push(route);
+      },
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -165,25 +218,16 @@ class DashboardPage extends StatelessWidget {
           children: [
             Icon(icon, color: const Color(0xFFFF6B2B)),
             const Spacer(),
-            Text(title,
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 14))
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _bottomNav() {
-    return BottomNavigationBar(
-      backgroundColor: const Color(0xFF131316),
-      selectedItemColor: const Color(0xFFFF6B2B),
-      unselectedItemColor: Colors.white38,
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-        BottomNavigationBarItem(icon: Icon(Icons.folder), label: "Files"),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
-      ],
     );
   }
 }

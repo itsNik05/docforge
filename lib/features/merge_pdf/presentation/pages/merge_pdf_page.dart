@@ -36,22 +36,21 @@ class _MergePdfPageState extends State<MergePdfPage> {
 
     setState(() => isProcessing = true);
 
-    // ✅ Fix 1: declare mergedDocument locally
     final mergedDocument = sfpdf.PdfDocument();
 
     try {
       for (File file in selectedFiles) {
         final bytes = await file.readAsBytes();
-        final sfpdf.PdfDocument document = sfpdf.PdfDocument(inputBytes: bytes);
+        final sfpdf.PdfDocument document =
+        sfpdf.PdfDocument(inputBytes: bytes);
 
-        // ✅ REPLACE YOUR OLD INNER FOR LOOP WITH THIS:
         for (int i = 0; i < document.pages.count; i++) {
           final originalPage = document.pages[i];
           final template = originalPage.createTemplate();
 
-          // ✅ Use sections to control per-page settings
           final section = mergedDocument.sections!.add();
-          section.pageSettings.size = Size(originalPage.size.width, originalPage.size.height);
+          section.pageSettings.size =
+              Size(originalPage.size.width, originalPage.size.height);
           section.pageSettings.margins.all = 0;
 
           final newPage = section.pages.add();
@@ -62,18 +61,30 @@ class _MergePdfPageState extends State<MergePdfPage> {
             Size(originalPage.size.width, originalPage.size.height),
           );
         }
-        // ✅ END OF REPLACEMENT
 
         document.dispose();
       }
 
-      final directory = await getExternalStorageDirectory();
-      final filePath = '${directory!.path}/merged_output.pdf';
+      // ✅ CREATE DocForge DIRECTORY
+      final directory = await getApplicationDocumentsDirectory();
+      final pdfDir = Directory('${directory.path}/DocForge');
+
+      if (!await pdfDir.exists()) {
+        await pdfDir.create(recursive: true);
+      }
+
+      // ✅ UNIQUE FILE NAME
+      final fileName =
+          'merged_${DateTime.now().millisecondsSinceEpoch}.pdf';
+
+      final filePath = '${pdfDir.path}/$fileName';
 
       final bytes = mergedDocument.saveSync();
       await File(filePath).writeAsBytes(bytes);
 
       mergedDocument.dispose();
+
+      print("Saved at: $filePath");
 
       setState(() {
         mergedPath = filePath;
