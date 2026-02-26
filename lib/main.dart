@@ -1,22 +1,34 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'core/theme/dark_theme.dart';
+import 'package:provider/provider.dart';
+
 import 'core/router/app_router.dart';
+import 'features/scan_pdf/presentation/provider/scan_provider.dart';
+import 'features/scan_pdf/domain/repositories/scan_repository.dart';
+import 'features/scan_pdf/data/scan_mlkit_service.dart';
+import 'core/services/permission_service.dart';
 
 void main() {
-  runApp(const ProviderScope(child: DocForgeApp()));
+  runApp(const MyApp());
 }
 
-class DocForgeApp extends StatelessWidget {
-  const DocForgeApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      debugShowCheckedModeBanner: false,
-      title: 'DocForge',
-      theme: DarkTheme.theme,
-      routerConfig: appRouter,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) => ScanProvider(
+            ScanRepository(ScanMlKitService()),
+            PermissionService(),
+          ),
+        ),
+      ],
+      child: MaterialApp.router(
+        debugShowCheckedModeBanner: false,
+        routerConfig: appRouter,
+      ),
     );
   }
 }

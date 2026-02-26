@@ -194,7 +194,7 @@ class _DashboardPageState extends State<DashboardPage> {
           _toolCard(context, "Merge PDFs", Icons.merge, "/merge"),
           _toolCard(context, "Split PDF", Icons.content_cut, "/"),
           _toolCard(context, "Compress", Icons.compress, "/"),
-          _toolCard(context, "Scan PDF", Icons.camera_alt, "/"),
+          _toolCard(context, "Scan PDF", Icons.camera_alt, "/scan"),
         ],
       ),
     );
